@@ -36,6 +36,7 @@ python main.py [options]
 ### Command-line Options
 
 - `--preset CITY`: Use a predefined city preset (options: "baku", "seattle", "tokyo", etc.)
+  > ⚠️ **Warning**: The Tokyo preset downloads a very large street network and may take significantly longer than other presets.
 - `--city CITY_NAME`: Specify a custom city (e.g., "Paris, France")
 - `--output-dir DIR`: Directory to save visualization results (default: "output")
 - `--data-dir DIR`: Directory for cached map data (default: "data")
