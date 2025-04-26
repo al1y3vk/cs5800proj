@@ -20,9 +20,10 @@ This project visualizes the A* pathfinding algorithm on street networks from Ope
 
 1. Clone this repository
 2. Install the required dependencies:
-   ```
-   pip install -r requirements.txt
-   ```
+
+```
+pip install -r requirements.txt
+```
 
 ## Usage
 
