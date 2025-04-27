@@ -43,7 +43,7 @@ def calculate_heuristic(G, current, target, heuristic_type=HeuristicType.HAVERSI
     target_y, target_x = G.nodes[target]['y'], G.nodes[target]['x']
     
     if heuristic_type == HeuristicType.EUCLIDEAN:
-        # Simple straight-line distance (not accounting for Earth's curvature)
+        # Simple straight-line distance
         # Less accurate for large distances but computationally efficient
         return math.sqrt((target_y - current_y)**2 + (target_x - current_x)**2) * 111000  # approx meters
         
