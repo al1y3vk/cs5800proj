@@ -124,7 +124,8 @@ def visualize_realtime_search(G, start_node, end_node, weight='travel_time', cit
                             sample_indices = [path_len // 4, path_len // 2, 3 * path_len // 4]
                             zoom_nodes.extend([vis_state.final_path[i] for i in sample_indices])
                     
-                    renderer.zoom_to_area_of_interest(zoom_nodes, buffer_factor=0.2)
+                    # Use a larger buffer (35%) to ensure we have adequate overhead for exploration
+                    renderer.zoom_to_area_of_interest(zoom_nodes, buffer_factor=0.35)
                 
                 # Update the title
                 if vis_state.completed:

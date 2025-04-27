@@ -217,7 +217,8 @@ class AStarMapRenderer(MapRenderer):
         )
         
         # Zoom to the area containing start and end points
-        self.zoom_to_area_of_interest([start_node, end_node], buffer_factor=0.3)
+        # Use a larger buffer (40%) for initial view to account for exploration
+        self.zoom_to_area_of_interest([start_node, end_node], buffer_factor=0.4)
         
         return self
         
