@@ -9,10 +9,11 @@ from src.utils.map_utils import print_route_info, save_path_stats
 from src.algorithms.astar import a_star_realtime, UpdateType
 from src.visualization.visualization_state import VisualizationState, AlgorithmRunner
 from src.visualization.map_renderer import AStarMapRenderer
+from src.visualization.gif_recorder import VisualizationRecorder
 
 def visualize_realtime_search(G, start_node, end_node, weight='travel_time', city_name="City", 
-                         output_dir="output", save_result=True, node_delay=0.05, batch_size=20, 
-                         target_runtime=12.0):
+                         output_dir="output", save_result=True, heuristic_type=None,
+                         custom_heuristic=None, record_gif=True):
     """
     Visualize the A* search algorithm in real-time as it explores the graph
     
@@ -24,9 +25,9 @@ def visualize_realtime_search(G, start_node, end_node, weight='travel_time', cit
         city_name: Name of the city for the title
         output_dir: Directory to save the output
         save_result: Whether to save the final result image
-        node_delay: Delay between processing nodes (controls animation speed)
-        batch_size: Number of nodes to process in a batch before delaying
-        target_runtime: Target runtime for visualization in seconds
+        heuristic_type: Heuristic type to use (from HeuristicType enum)
+        custom_heuristic: Custom heuristic function (if heuristic_type is CUSTOM)
+        record_gif: Whether to record and save a GIF of the visualization
         
     Returns:
         tuple: (path, visited_nodes) - the path found and nodes visited during search
@@ -51,8 +52,14 @@ def visualize_realtime_search(G, start_node, end_node, weight='travel_time', cit
     vis_state = VisualizationState()
     vis_state.update_interval = 0.1  # Update screen at most this many times per second
     
+    # Set up GIF recorder if requested
+    recorder = None
+    if record_gif:
+        recorder = VisualizationRecorder(output_dir)
+        recorder.start_recording()
+    
     # Set up the algorithm runner
-    algorithm_args = (G, start_node, end_node, weight, node_delay, batch_size)
+    algorithm_args = (G, start_node, end_node, weight, heuristic_type, custom_heuristic)
     runner = AlgorithmRunner(a_star_realtime, algorithm_args)
     
     # Start the algorithm
@@ -100,6 +107,24 @@ def visualize_realtime_search(G, start_node, end_node, weight='travel_time', cit
                         alpha=1.0, 
                         zorder=5
                     )
+                    
+                    # Zoom to the area containing the path with some buffer
+                    # Include key points: start, end, and a sample of path nodes to keep it focused
+                    zoom_nodes = [start_node, end_node]
+                    
+                    # Add some path nodes for better framing
+                    if len(vis_state.final_path) > 2:
+                        # Add some points along the path to ensure we capture its extent
+                        path_len = len(vis_state.final_path)
+                        if path_len < 10:
+                            # For short paths, include all nodes
+                            zoom_nodes.extend(vis_state.final_path)
+                        else:
+                            # For longer paths, sample some nodes
+                            sample_indices = [path_len // 4, path_len // 2, 3 * path_len // 4]
+                            zoom_nodes.extend([vis_state.final_path[i] for i in sample_indices])
+                    
+                    renderer.zoom_to_area_of_interest(zoom_nodes, buffer_factor=0.2)
                 
                 # Update the title
                 if vis_state.completed:
@@ -123,6 +148,28 @@ def visualize_realtime_search(G, start_node, end_node, weight='travel_time', cit
                 
                 # Refresh the display
                 renderer.show(block=False)
+                
+                # Capture frame for GIF if recording
+                if recorder:
+                    recorder.capture_frame(renderer.fig)
+            
+            # Check if we need to save a GIF
+            if vis_state.save_gif_requested and recorder:
+                gif_filename = vis_state.gif_filename
+                if not gif_filename:
+                    # Generate a default filename if one wasn't provided
+                    heuristic_name = "default"
+                    if heuristic_type:
+                        heuristic_name = heuristic_type.name.lower()
+                    gif_filename = f"{city_name.split(',')[0].lower()}_astar_{heuristic_name}_{time.strftime('%Y%m%d_%H%M%S')}.gif"
+                
+                # Stop recording and save the GIF
+                recorder.stop_recording()
+                gif_path = recorder.save_gif(gif_filename, fps=15)
+                print(f"Saved algorithm animation to {gif_path}")
+                
+                # Clear the flag to avoid saving multiple times
+                vis_state.save_gif_requested = False
             
             # Handle completed state if needed
             if vis_state.completed and vis_state.final_path and save_result:
@@ -143,13 +190,20 @@ def visualize_realtime_search(G, start_node, end_node, weight='travel_time', cit
             if not update:
                 time.sleep(0.01)
         
+        # Make sure we save the GIF if requested but not yet saved
+        if vis_state.save_gif_requested and recorder:
+            recorder.stop_recording()
+            gif_filename = vis_state.gif_filename or f"{city_name.split(',')[0].lower()}_astar_final.gif"
+            gif_path = recorder.save_gif(gif_filename, fps=15)
+            print(f"Saved final animation to {gif_path}")
+        
         # Wait for user to close the window
         renderer.show(block=True)
         
     except KeyboardInterrupt:
-        print("Visualization interrupted by user.")
+        print("Visualization interrupted by user")
     finally:
-        # Ensure we clean up the algorithm thread
+        # Clean up
         runner.stop()
-    
+        
     return vis_state.final_path, vis_state.visited_nodes 

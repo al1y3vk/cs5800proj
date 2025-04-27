@@ -8,6 +8,7 @@ import time
 import threading
 import queue
 from enum import Enum
+from src.algorithms.astar import UpdateType
 
 
 class VisualizationState:
@@ -23,6 +24,8 @@ class VisualizationState:
         self.current_best_path = []
         self.final_path = None
         self.completed = False
+        self.save_gif_requested = False
+        self.gif_filename = None
         
         # Drawing state
         self.last_update_time = time.time()
@@ -71,11 +74,31 @@ class VisualizationState:
             self.current_best_path = update_data
             
         elif update_type == UpdateType.COMPLETE:
-            self.final_path, full_visited = update_data
+            if len(update_data) == 2:
+                # Backward compatibility with older versions
+                self.final_path, full_visited = update_data
+                self.stats = {}
+            else:
+                # New version with statistics
+                self.final_path, full_visited, self.stats = update_data
+                
             self.completed = True
             # Make sure we have all visited nodes
             if len(full_visited) > len(self.visited_nodes):
                 self.visited_nodes = full_visited
+                
+            # Check if we should save GIF
+            if self.stats and self.stats.get('save_gif', False):
+                self.save_gif_requested = True
+        
+        elif update_type == UpdateType.PROGRESS:
+            # Progress updates are handled by the visualization
+            pass
+            
+        elif update_type == UpdateType.SAVE_GIF:
+            # Request to save a GIF
+            self.save_gif_requested = True
+            self.gif_filename = update_data
 
 
 class AlgorithmRunner:
@@ -115,19 +138,19 @@ class AlgorithmRunner:
     def _run(self):
         """Run the algorithm function with arguments"""
         # Get the base arguments
+        G, start_node, end_node, weight = self.algorithm_args[:4]
+        
         if len(self.algorithm_args) >= 6:
-            G, start_node, end_node, weight, node_delay, batch_size = self.algorithm_args
-            # Call with all parameters including target_runtime
+            # Call with updated parameters
             self.algorithm_func(
                 G, start_node, end_node, 
                 self.update_queue, self.stop_event, 
-                weight, update_interval=5, 
-                node_delay=node_delay, batch_size=batch_size,
-                target_runtime=12.0  # Target visualization time (seconds)
+                weight, 
+                heuristic_type=self.algorithm_args[4] if len(self.algorithm_args) > 4 else None,
+                custom_heuristic=self.algorithm_args[5] if len(self.algorithm_args) > 5 else None
             )
         else:
             # Backwards compatibility - use defaults
-            G, start_node, end_node, weight = self.algorithm_args[:4]
             self.algorithm_func(G, start_node, end_node, self.update_queue, self.stop_event, weight)
                            
     def get_update(self, timeout=0.05):
@@ -151,8 +174,4 @@ class AlgorithmRunner:
         
     def has_updates(self):
         """Check if there are updates in the queue"""
-        return not self.update_queue.empty()
-
-
-# Import this enum from astar to maintain single source of truth
-from src.algorithms.astar import UpdateType 
+        return not self.update_queue.empty() 

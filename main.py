@@ -7,6 +7,7 @@ import sys
 from src.data.graph import get_city_graph, get_diverse_nodes
 from src.visualization.map_viz import visualize_realtime_search
 from src.utils.helpers import Timer, create_directories, print_graph_info
+from src.algorithms.astar import HeuristicType
 
 # City presets with full names for easy selection
 CITY_PRESETS = {
@@ -16,6 +17,15 @@ CITY_PRESETS = {
     "london": "London, United Kingdom",
     "seoul": "Seoul, South Korea",
     "nyc": "New York City, New York, USA",
+    "rome": "Rome, Italy"
+}
+
+# Heuristic type names to enum mapping
+HEURISTIC_TYPES = {
+    "euclidean": HeuristicType.EUCLIDEAN,
+    "manhattan": HeuristicType.MANHATTAN,
+    "diagonal": HeuristicType.DIAGONAL,
+    "haversine": HeuristicType.HAVERSINE
 }
 
 def parse_args():
@@ -29,7 +39,11 @@ def parse_args():
     city_group.add_argument('--city', type=str, default='Seattle, Washington, USA',
                         help='Custom city to visualize (default: Seattle, Washington, USA)')
     
-    # Other arguments
+    # Algorithm options
+    parser.add_argument('--heuristic', type=str, choices=list(HEURISTIC_TYPES.keys()), default='haversine',
+                       help=f'Heuristic type to use for A* algorithm (default: haversine)')
+    
+    # Output options
     parser.add_argument('--output-dir', type=str, default='output',
                         help='Directory to save output (default: output)')
     parser.add_argument('--data-dir', type=str, default='data',
@@ -38,12 +52,9 @@ def parse_args():
                         help='Do not display the visualization')
     parser.add_argument('--no-save', action='store_true',
                         help='Do not save the final result')
-    parser.add_argument('--delay', type=float, default=0.05,
-                        help='Delay between processing nodes (seconds, default: 0.05)')
-    parser.add_argument('--batch-size', type=int, default=20,
-                        help='Number of nodes to process in each batch (default: 20)')
-    parser.add_argument('--runtime', type=float, default=12.0,
-                        help='Target runtime for visualization in seconds (default: 12.0)')
+    parser.add_argument('--no-gif', action='store_true',
+                        help='Do not save animation as GIF')
+    
     return parser.parse_args()
 
 def main():
@@ -55,6 +66,9 @@ def main():
         city_name = CITY_PRESETS[args.preset]
     else:
         city_name = args.city
+    
+    # Get the selected heuristic type
+    heuristic_type = HEURISTIC_TYPES[args.heuristic]
     
     # Create necessary directories
     create_directories([args.output_dir, args.data_dir])
@@ -74,6 +88,7 @@ def main():
     # Pick start and end nodes for a more interesting path
     start_node, end_node = get_diverse_nodes(G)
     print(f"Path from node {start_node} to {end_node}")
+    print(f"Using {args.heuristic} heuristic")
     
     # Visualize the A* search in real-time
     with Timer("A* visualization"):
@@ -84,9 +99,8 @@ def main():
                 city_name=city_name,
                 output_dir=args.output_dir,
                 save_result=not args.no_save,
-                node_delay=args.delay,
-                batch_size=args.batch_size,
-                target_runtime=args.runtime
+                heuristic_type=heuristic_type,
+                record_gif=not args.no_gif
             )
             if path:
                 print(f"Path found with {len(path)} nodes")
@@ -96,7 +110,10 @@ def main():
         except Exception as e:
             print(f"Error during visualization: {e}")
     
-    print(f"Visualization complete. Images saved to {args.output_dir}")
+    if not args.no_save:
+        print(f"Visualization complete. Images saved to {args.output_dir}")
+    if not args.no_gif:
+        print(f"Animation saved as GIF in {args.output_dir}")
 
 if __name__ == "__main__":
     main() 

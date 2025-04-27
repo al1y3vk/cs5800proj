@@ -161,6 +161,41 @@ class AStarMapRenderer(MapRenderer):
         )
         return self
         
+    def zoom_to_area_of_interest(self, nodes_of_interest, buffer_factor=0.2):
+        """
+        Zoom the map to focus on the area containing the nodes of interest
+        
+        Args:
+            nodes_of_interest: List of node IDs to focus on
+            buffer_factor: Amount of buffer space around the nodes (0.2 = 20% extra space)
+            
+        Returns:
+            self for method chaining
+        """
+        if not nodes_of_interest or len(nodes_of_interest) == 0:
+            return self
+            
+        # Get coordinates for the nodes of interest
+        points = self.nodes.loc[nodes_of_interest]
+        
+        # Get bounds
+        min_x, min_y = points.x.min(), points.y.min()
+        max_x, max_y = points.x.max(), points.y.max()
+        
+        # Calculate the width and height of the bounding box
+        width = max_x - min_x
+        height = max_y - min_y
+        
+        # Apply buffer - increase the area by the buffer factor
+        buffer_x = width * buffer_factor
+        buffer_y = height * buffer_factor
+        
+        # Set the axis limits with the buffer
+        self.ax.set_xlim(min_x - buffer_x, max_x + buffer_x)
+        self.ax.set_ylim(min_y - buffer_y, max_y + buffer_y)
+        
+        return self
+        
     def render_start_end(self, start_node, end_node):
         """
         Render start and end nodes
@@ -180,6 +215,10 @@ class AStarMapRenderer(MapRenderer):
             self.ax, self.nodes, [end_node],
             size=150, color='red', alpha=1.0, zorder=4
         )
+        
+        # Zoom to the area containing start and end points
+        self.zoom_to_area_of_interest([start_node, end_node], buffer_factor=0.3)
+        
         return self
         
     def render_path(self, path, color='blue', width=2, alpha=0.7, zorder=3):
